@@ -1,9 +1,6 @@
-'''Train CIFAR10 with PyTorch.'''
-
 from __future__ import print_function
 
 if __name__=='__main__':
-
 
     import torch
     import torch.nn as nn
@@ -14,6 +11,7 @@ if __name__=='__main__':
 
     import torchvision
     import torchvision.transforms as transforms
+    from dataset import AIGS10
 
     import os
     import argparse
@@ -37,9 +35,10 @@ if __name__=='__main__':
     n_epochs = args.n_epochs
 
     # Data
-    means = (0.4914, 0.4822, 0.4465)
     print('==> Preparing data..')
+    means = (0.4914, 0.4822, 0.4465)
     transform_train = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -47,17 +46,18 @@ if __name__=='__main__':
     ])
 
     transform_test = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.ToTensor(),
         transforms.Normalize(means, (0.2023, 0.1994, 0.2010)),
     ])
 
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+    trainset = AIGS10(train=True, transform=transform_train)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
+    testset = AIGS10(train=False, transform=transform_test)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4)
 
-    classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    classes = ['aeroplane', 'car', 'bird', 'cat', 'sheep', 'dog', 'chair', 'horse', 'boat', 'train']
 
     # Model
     if args.resume:
@@ -89,7 +89,7 @@ if __name__=='__main__':
         total = 0
         for batch_idx, (inputs, targets) in enumerate(trainloader):
             if use_cuda:
-                inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = inputs.cuda(), targets.cuda().long()
             optimizer.zero_grad()
             inputs, targets = Variable(inputs), Variable(targets)
             outputs = net(inputs)
@@ -114,7 +114,7 @@ if __name__=='__main__':
             total = 0
             for batch_idx, (inputs, targets) in enumerate(testloader):
                 if use_cuda:
-                    inputs, targets = inputs.cuda(), targets.cuda()
+                    inputs, targets = inputs.cuda(), targets.cuda().long()
                 outputs = net(inputs)
                 loss = criterion(outputs, targets)
 
