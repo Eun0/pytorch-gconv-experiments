@@ -39,11 +39,11 @@ if __name__=='__main__':
     parser.add_argument('--checkpoint_dir', required=True)
     parser.add_argument('--checkpoint',default='ckpt')
 
-    parser.add_argument('--attention',default=False)
-    parser.add_argument('--num_f1',default=23)
-    parser.add_argument('--num_f2',default=45)
-    parser.add_argument('--num_f3',default=91)
-    parser.add_argument('--num_f4',default=181)
+    parser.add_argument('--attention',action='store_true')
+    parser.add_argument('--num_f1',type=int,default=23)
+    parser.add_argument('--num_f2',type=int,default=45)
+    parser.add_argument('--num_f3',type=int,default=91)
+    parser.add_argument('--num_f4',type=int,default=181)
     args = parser.parse_args()
 
     use_cuda = torch.cuda.is_available()
@@ -112,7 +112,10 @@ if __name__=='__main__':
         cudnn.benchmark = True
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optimizers_dict[args.opt](net.parameters(), lr=lr, weight_decay=5e-4)
+    if args.opt=='SGD':
+        optimizer = optimizers_dict[args.opt](net.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
+    else:
+        optimizer = optimizers_dict[args.opt](net.parameters(),lr=lr)
 
     # Training
     def train(epoch):
