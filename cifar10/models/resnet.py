@@ -65,19 +65,18 @@ class Bottleneck(nn.Module):
         out = F.relu(out)
         return out
 
-
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10):
+    def __init__(self, block, num_blocks, num_f1, num_f2, num_f3, num_f4, num_classes=10):
         super(ResNet, self).__init__()
-        self.in_planes = 23
 
-        self.conv1 = P4MConvZ2(3, 23, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm3d(23)
-        self.layer1 = self._make_layer(block, 23, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 45, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 91, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 181, num_blocks[3], stride=2)
-        self.linear = nn.Linear(181*8*block.expansion, num_classes)
+        self.in_planes = num_f1
+        self.conv1 = P4MConvZ2(3, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm3d(self.in_planes)
+        self.layer1 = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, num_f2, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, num_f3, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, num_f4, num_blocks[3], stride=2)
+        self.linear = nn.Linear(num_f4*8*block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -101,8 +100,53 @@ class ResNet(nn.Module):
         return out
 
 
-def ResNet18():
-    return ResNet(BasicBlock, [2,2,2,2])
+class AttentionResNet(nn.Module):
+    def __init__(self, block, num_blocks, num_f1,num_f2,num_f3,num_f4,num_classes=10):
+        super(AttentionResNet, self).__init__()
+
+        self.in_planes = num_f1
+
+        self.conv1 = P4MConvZ2(3, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm3d(self.in_planes)
+        self.layer1 = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, num_f2, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, num_f3, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, num_f4, num_blocks[3], stride=2)
+        self.W1 = nn.Linear(num_f4*4*4, 128)
+        self.w = nn.Linear(128, 1)
+        self.linear = nn.Linear(num_f4*16*block.expansion, num_classes)
+
+
+    def _make_layer(self, block, planes, num_blocks, stride):
+        strides = [stride] + [1]*(num_blocks-1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.in_planes, planes, stride))
+            self.in_planes = planes * block.expansion
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        outs = out.size()
+        out = out.transpose(1,2).reshape(outs[0], outs[2], -1) # 1, 8, 181*4*4
+        # out = avgfool(out)
+        # out = out.transpose(1,2).reshape(outs[0], outs[2], -1)
+        out = torch.softmax(self.w(torch.tanh(self.W1(out))), -2) * out
+        out = out.sum(-2)
+        out = self.linear(out)
+        return out
+
+
+def ResNet18(num_f1,num_f2,num_f3,num_f4,attention):
+
+    if not attention:
+        return ResNet(BasicBlock, [2,2,2,2],num_f1,num_f2,num_f3,num_f4)
+    else:
+        return AttentionResNet(BasicBlock,[2,2,2,2],num_f1,num_f2,num_f3,num_f4)
 
 def ResNet34():
     return ResNet(BasicBlock, [3,4,6,3])
