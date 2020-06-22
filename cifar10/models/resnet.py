@@ -112,8 +112,8 @@ class AttentionResNet(nn.Module):
         self.layer2 = self._make_layer(block, num_f2, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, num_f3, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, num_f4, num_blocks[3], stride=2)
-        self.W1 = nn.Linear(num_f4*4*4, 128)
-        self.w = nn.Linear(128, 1)
+        self.W1 = nn.Linear(num_f4*4*4, 32)
+        self.w = nn.Linear(32, 1)
         self.linear = nn.Linear(num_f4*16*block.expansion, num_classes)
 
 
@@ -146,6 +146,7 @@ def ResNet18(num_f1,num_f2,num_f3,num_f4,attention):
     if not attention:
         return ResNet(BasicBlock, [2,2,2,2],num_f1,num_f2,num_f3,num_f4)
     else:
+        print("Attention model")
         return AttentionResNet(BasicBlock,[2,2,2,2],num_f1,num_f2,num_f3,num_f4)
 
 def ResNet34():
